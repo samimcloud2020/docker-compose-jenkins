@@ -7,6 +7,8 @@ chown -R 1000:1000 .
 chmod 777 /var/run/docker.sock
 usermod -aG docker $USER
 
+sudo apt install net-tools
+
 
 docker-compose up -d
 docker-compose down
