@@ -9,6 +9,12 @@ usermod -aG docker $USER
 
 sudo apt install net-tools
 
+ubuntu@ip-172-31-57-202:~/jenkins$ netstat -ntulp | grep 8080
+(Not all processes could be identified, non-owned process info
+ will not be shown, you would have to be root to see it all.)
+tcp        0      0 0.0.0.0:8080            0.0.0.0:*               LISTEN      -                   
+tcp6       0      0 :::8080                 :::*                    LISTEN      - 
+
 
 docker-compose up -d
 docker-compose down
