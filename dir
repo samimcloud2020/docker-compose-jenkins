@@ -1,0 +1,6 @@
+root@ip-172-31-57-202:~/jenkins# ls
+docker-compose.yaml  jenkins_home
+
+
+docker-compose up -d
+docker-compose down
