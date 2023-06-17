@@ -1,5 +1,33 @@
-version: '3'
+version: "3"
 services:
+  sonarqube:
+    image: sonarqube
+    expose:
+      - 9000
+    ports:
+      - "9000:9000"
+    networks:
+      - net
+    environment:
+      - sonar.jdbc.url=jdbc:postgresql://db:5432/sonar
+      - sonar.jdbc.username=sonar
+      - sonar.jdbc.password=sonar
+    volumes:
+      - sonarqube_conf:/opt/sonarqube/conf
+      - sonarqube_data:/opt/sonarqube/data
+      - sonarqube_extensions:/opt/sonarqube/extensions
+      - sonarqube_bundled-plugins:/opt/sonarqube/lib/bundled-plugins
+
+  db:
+    image: postgres
+    networks:
+      - net
+    environment:
+      - POSTGRES_USER=sonar
+      - POSTGRES_PASSWORD=sonar
+    volumes:
+      - postgresql:/var/lib/postgresql
+      - postgresql_data:/var/lib/postgresql/data
   jenkins:
     image: jenkins/jenkins
     ports:
@@ -9,8 +37,51 @@ services:
     volumes:
       - "$PWD/jenkins_home:/var/jenkins_home"
     networks:
+      - net    
+  nexus:
+    image: sonatype/nexus3
+    volumes:
+      - "nexus-data:/nexus-data"
+    ports:
+      - "8081:8081"   
+  remote_host:
+    container_name: remote-host
+    image: remote-host
+    volumes:
+      - "$PWD/remote_host:/tmp"  
+    build:
+      context: .
+      dockerfile: Dockerfile
+    networks:
       - net
+  db_host:
+    image: mysql:5.7
+    container_name: mysql
+    networks:
+      - net
+    volumes:
+      - $PWD/mysql_data:/var/lib/mysql
+    environment:
+      - "MYSQL_ROOT_PASSWORD=1234"
+    command: --default-authentication-plugin=mysql_native_password
+    restart: always
+  adminer:
+    image: adminer:fastcgi
+    restart: always
+    ports:
+      - 9001:9000
+    networks:
+      - net        
+
 networks:
   net:
-    
+volumes:                    #named volume must declare.
+  nexus-data:
+  sonarqube_conf:
+  sonarqube_data:
+  sonarqube_extensions:
+  sonarqube_bundled-plugins:
+  postgresql:
+  postgresql_data:
+
 
