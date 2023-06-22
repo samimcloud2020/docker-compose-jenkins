@@ -1,0 +1,13 @@
+# docker exec -it -u 0 <cid> bash
+#apt update 
+#apt install openjdk-11-jdk -y
+#find /usr/lib/jvm/java-1.11.0-openjdk-amd64
+#vim /etc/profile
+export JAVA_HOME=/usr/lib/jvm/java-1.11.0-openjdk-amd64
+export PATH=$JAVA_HOME/bin:$PATH
+#source /etc/profile
+
+jenkins-----tools-----jdk ins-----name: java   java_home  /usr/lib/jvm/java-1.11.0-openjdk-amd64
+
+
+jenkins----tools---sonarqube ------set http://ip:9000 and token of sonarqube project
