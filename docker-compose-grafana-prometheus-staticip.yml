@@ -1,0 +1,189 @@
+version: "3.8"
+services:
+  prometheus:
+    image: prom/prometheus
+    restart: always
+    volumes:
+      - ./prometheus:/etc/prometheus/
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    ports:
+      - 9090:9090
+    links:
+      - cadvisor:cadvisor
+      - alertmanager:alertmanager
+    depends_on:
+      - cadvisor
+    networks:
+      network:
+        ipv4_address: 10.5.0.10
+
+  node-exporter:
+    image: prom/node-exporter
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - --collector.filesystem.ignored-mount-points
+      - '^/(sys|proc|dev|host|etc|rootfs/var/lib/docker/containers|rootfs/var/lib/docker/overlay2|rootfs/run/docker/netns|rootfs/var/lib/docker/aufs)($$|/)'
+    ports:
+      - 9100:9100
+    restart: always
+    networks:
+      network:
+        ipv4_address: 10.5.0.11
+    
+  alertmanager:
+    image: prom/alertmanager
+    restart: always
+    ports:
+      - 9093:9093
+    volumes:
+      - ./alertmanager/:/etc/alertmanager/
+    command:
+      - '--config.file=/etc/alertmanager/config.yml'
+      - '--storage.path=/alertmanager'
+    networks:
+      network:
+        ipv4_address: 10.5.0.12
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:rw
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+    ports:
+      - 8082:8080
+    restart: always
+    networks:
+      network:
+        ipv4_address: 10.5.0.13
+   
+  grafana:
+    image: grafana/grafana
+    user: '472'
+    restart: always
+    environment:
+      GF_INSTALL_PLUGINS: 'grafana-clock-panel,grafana-simple-json-datasource'
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning/:/etc/grafana/provisioning/
+    env_file:
+      - ./grafana/config.monitoring
+    ports:
+      - 3000:3000
+    depends_on:
+      - prometheus
+    networks:
+      network:
+        ipv4_address: 10.5.0.14
+  nexus:
+    image: sonatype/nexus3
+    restart: always
+    volumes:
+      - "nexus-data:/nexus-data"
+    ports:
+      - "8081:8081"
+    networks:
+      network:
+        ipv4_address: 10.5.0.4
+  db:
+    image: postgres:12-alpine
+    restart: always
+    environment:
+      - POSTGRES_USER=sonar
+      - POSTGRES_PASSWORD=sonar
+      - POSTGRES_DB=sonar
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      network:
+        ipv4_address: 10.5.0.5
+
+  sonarqube:
+    image: sonarqube:community
+    restart: always
+    depends_on:
+      - db
+    environment:
+      - sonar.jdbc.username=sonar
+      - sonar.jdbc.url=jdbc:postgresql://db/sonar
+      - sonar.jdbc.password=sonar
+    ports:
+      - 9000:9000
+    volumes:
+      - sonar_conf:/opt/sonarqube/conf
+      - sonar_data:/opt/sonarqube/data
+      - sonar_extensions:/opt/sonarqube/extensions
+      - sonar_plugins:/opt/sonarqube/lib/bundled-plugins
+    networks:
+      network:
+        ipv4_address: 10.5.0.3
+  docker:
+    image: docker:dind   #to execute docker command in jenkins
+    container_name: jenkins-docker  
+    restart: always
+    privileged: true
+    command: --storage-driver=overlay2  
+    environment:
+      - DOCKER_TLS_CERTDIR=/certs
+    volumes:
+      - "jenkins-docker-certs:/certs/client"
+      - "jenkins_data:/var/jenkins_home"
+    ports:
+      - "2376:2376"
+    networks:
+      network:
+        ipv4_address: 10.5.0.6
+  jenkins:
+    image: myjenkins-blueocean:2.401.1-1
+    restart: always
+    build:
+      context: .
+      dockerfile: jenkins-Dockerfile
+    privileged: true  
+    #user: root  
+    ports:
+      - 8080:8080
+      - 50000:50000
+    container_name: jenkins-blueocean
+    environment:
+      - DOCKER_HOST=tcp://docker:2376
+      - DOCKER_CERT_PATH=/certs/client
+      - DOCKER_TLS_VERIFY=1   
+    volumes:
+      - "jenkins_data:/var/jenkins_home"
+      - "/var/run/docker.sock:/var/run/docker.sock"  
+      - "jenkins-docker-certs:/certs/client:ro"  
+    networks:
+      network:
+        ipv4_address: 10.5.0.2
+  
+
+networks:
+  network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.5.0.0/16
+          gateway: 10.5.0.1
+volumes:                    #named volume must declare.
+  sonar_conf:
+  sonar_data:
+  sonar_extensions:
+  sonar_plugins:
+  postgres_data:
+  jenkins_data:
+  jenkins-docker-certs:
+  nexus-data:  
+  prometheus_data: 
+  grafana_data: 
